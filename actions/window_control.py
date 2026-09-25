@@ -17,7 +17,7 @@ def switch_window():
     
     keyboard.press('alt')
     
-    time.sleep(0.05) 
+    time.sleep(0.03) 
     
     keyboard.send('tab')
     
@@ -36,7 +36,7 @@ def switch_to_app(spoken_name: str):
 
     print(f"Ищу процессы: {target_exe}")
     
-    # 1. Собираем ВСЕ PID для данного приложения
+    # 1. Собираем все PID для данного приложения
     target_pids = []
     for proc in psutil.process_iter(['pid', 'name']):
         if proc.info['name'] and proc.info['name'].lower() == target_exe.lower():
@@ -69,3 +69,35 @@ def switch_to_app(spoken_name: str):
                 
     print("Окно с UI не найдено среди процессов.")
     return False
+
+
+def find_app_hwnd(spoken_name: str):
+    """
+    Ищет окно приложения по словарю синонимов и возвращает его ID (HWND).
+    Не активирует окно. Возвращает None, если окно не найдено.
+    """
+    target_exe = APP_ALIASES.get(spoken_name)
+    
+    if not target_exe:
+        return None
+
+    # 1. Собираем все PID
+    target_pids = []
+    for proc in psutil.process_iter(['pid', 'name']):
+        if proc.info['name'] and proc.info['name'].lower() == target_exe.lower():
+            target_pids.append(proc.info['pid'])
+            
+    if not target_pids:
+        return None
+
+    # 2. Ищем видимое окно
+    desktop = Desktop(backend="uia")
+    windows = desktop.windows()
+    
+    for win in windows:
+        if win.process_id() in target_pids:
+            # Проверяем, что окно видимое и имеет интерфейс
+            if win.is_visible() and win.handle:
+                return win.handle  # Возвращаем числовой ID окна (HWND)
+                
+    return None
