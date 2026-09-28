@@ -7,15 +7,45 @@ from actions.media_control import (
     prev_track,
     send_media_command_to_background,
 )
+from actions.web_control import (
+    close_current_tab,
+    close_site,
+    new_tab,
+    next_tab,
+    open_site,
+    previous_tab,
+    reopen_tab,
+)
 from actions.window_control import find_app_hwnd, switch_to_app, switch_window
 from config import APP_ALIASES
+from core.listener import listen_free
 from tts.speaker import speak
+
+
+OPEN_SITE_MARKERS = ("open site", "go to", "open")
+CLOSE_SITE_MARKERS = ("close site", "close")
+
+
+def _extract_marker_query(command: str, markers):
+    for marker in markers:
+        if command.startswith(marker):
+            return command[len(marker):].strip(" .")
+    return ""
+
+
+def _site_command_query(command: str, markers):
+    query = _extract_marker_query(command, markers)
+    if query:
+        return query
+
+    speak("Which site?")
+    return listen_free()
 
 
 def process_command(command: str) -> bool:
     command = command.lower()
 
-    if "exit" in command or "stop" in command:
+    if "exit" in command:
         return True
 
     elif "hello" in command or "hi" in command:
@@ -24,17 +54,48 @@ def process_command(command: str) -> bool:
     elif "how are you" in command:
         speak("All systems are operating normally.")
 
+    # Browser tab command block
+
+    elif command in ("next tab", "switch tab"):
+        next_tab()
+
+    elif command in ("previous tab", "prev tab"):
+        previous_tab()
+
+    elif command == "new tab":
+        new_tab()
+
+    elif command == "close tab":
+        close_current_tab()
+
+    elif command == "reopen tab":
+        reopen_tab()
+
+    # Website command block
+
+    elif command == "open" or command.startswith("open site") or command.startswith("go to"):
+        query = _site_command_query(command, OPEN_SITE_MARKERS)
+        if query:
+            open_site(query)
+        else:
+            speak("No site name received.")
+
+    elif command == "close" or command.startswith("close site"):
+        query = _site_command_query(command, CLOSE_SITE_MARKERS)
+        if query:
+            close_site(query)
+        else:
+            speak("No site name received.")
+
     # Media command block
 
-    MEDIA_ACTIONS = {
-        "next": (["next"], next_track),
-        "prev": (["previous", "prev", "back"], prev_track),
-        "play_pause": (["pause", "play", "resume", "continue"], play_pause),
-    }
+    elif any(word in command for word in ("next", "previous", "prev", "back", "pause", "play", "resume", "continue")):
+        MEDIA_ACTIONS = {
+            "next": (["next"], next_track),
+            "prev": (["previous", "prev", "back"], prev_track),
+            "play_pause": (["pause", "play", "resume", "continue"], play_pause),
+        }
 
-    all_media_words = [word for words, _ in MEDIA_ACTIONS.values() for word in words]
-
-    if any(word in command for word in all_media_words):
         # 1. Action selection
         action_key = "play_pause"
         for key, (words, func) in MEDIA_ACTIONS.items():
@@ -43,7 +104,8 @@ def process_command(command: str) -> bool:
                 break
 
         # 2. Media keyword removal and application name extraction
-        stop_words = all_media_words + ["track", "song", "music", "on", "to", "the"]
+        stop_words = [word for words, _ in MEDIA_ACTIONS.values() for word in words]
+        stop_words += ["track", "song", "music", "on", "to", "the"]
         app_part = command
         for word in stop_words:
             app_part = app_part.replace(word, "")
@@ -72,9 +134,8 @@ def process_command(command: str) -> bool:
         else:
             print(f"Could not recognize an application in phrase: {app_part}")
 
-        return False
-
     # Alt + Tab block
+
     elif command.startswith("switch"):
         if command.strip() == "switch":
             switch_window()

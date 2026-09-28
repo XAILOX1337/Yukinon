@@ -9,7 +9,7 @@ pygame.mixer.init()
 
 async def _generate_and_save(text: str, file_path: str):
     # Voice selection
-    communicate = edge_tts.Communicate(text, rate="+35%", voice="en-US-ChristopherNeural")
+    communicate = edge_tts.Communicate(text, rate="+35%", voice="en-US-JennyNeural")
     await communicate.save(file_path)
 
 

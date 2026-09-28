@@ -15,7 +15,8 @@ if not os.path.exists(model_path):
 model = Model(model_path)
 
 VOCABULARY_JSON = json.dumps(VOCABULARY_LIST, ensure_ascii=False)
-recognizer = KaldiRecognizer(model, 16000, VOCABULARY_JSON)
+command_recognizer = KaldiRecognizer(model, 16000, VOCABULARY_JSON)
+free_recognizer = KaldiRecognizer(model, 16000)
 
 mic = pyaudio.PyAudio()
 stream = mic.open(
@@ -28,8 +29,7 @@ stream = mic.open(
 stream.start_stream()
 
 
-def listen():
-    print("\n[Listening...]")
+def _read_recognized_text(recognizer):
     while True:
         data = stream.read(4000, exception_on_overflow=False)
 
@@ -41,3 +41,13 @@ def listen():
                 print(f"You said: {text}")
                 return text
             return ""
+
+
+def listen():
+    print("\n[Listening...]")
+    return _read_recognized_text(command_recognizer)
+
+
+def listen_free():
+    print("\n[Listening free-form...]")
+    return _read_recognized_text(free_recognizer)
