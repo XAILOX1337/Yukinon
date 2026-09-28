@@ -18,21 +18,21 @@ def play_pause():
     """Playback toggle for the active window."""
     print("Action: Play/Pause (active window)")
     keyboard.send("play/pause")
-    time.sleep(0.1)
+    time.sleep(0.05)
 
 
 def next_track():
     """Next track command for the active window."""
     print("Action: Next Track (active window)")
     keyboard.send("next track")
-    time.sleep(0.1)
+    time.sleep(0.05)
 
 
 def prev_track():
     """Previous track command for the active window."""
     print("Action: Previous Track (active window)")
     keyboard.send("previous track")
-    time.sleep(0.1)
+    time.sleep(0.05)
 
 
 # Background functions

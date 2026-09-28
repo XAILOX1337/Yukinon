@@ -6,7 +6,9 @@ VOCABULARY_LIST = [
     "pause", "play", "resume", "continue",
     "next", "previous", "prev", "back",
     "track", "song", "music",
-    "open site",
+    "open", "close", "site", "tab", "new", "reopen", "go", "to",
+    "next tab", "previous tab", "new tab", "close tab", "reopen tab", "switch tab",
+    "open site", "close site", "go to",
     "spotify", "chrome", "google", "vs code", "code", "visual studio code",
     "telegram", "tg", "discord", "notepad", "hap", "firefox", "browser",
     "steam", "explorer", "task manager", "obsidian", "youtube"
