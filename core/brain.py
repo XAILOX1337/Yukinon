@@ -49,14 +49,14 @@ def _extract_marker_query(command: str, markers):
             return command[len(marker):].strip(" .")
     return ""
 
+# This function works kinda bad, so i decided to leave it like this for better times
+# def _site_command_query(command: str, markers):
+#     query = _extract_marker_query(command, markers)
+#     if query:
+#         return query
 
-def _site_command_query(command: str, markers):
-    query = _extract_marker_query(command, markers)
-    if query:
-        return query
-
-    speak("Which site?")
-    return listen_free()
+#     speak("Which site?")
+#     return listen_free()
 
 
 def process_command(command: str) -> CommandResult:
@@ -100,21 +100,21 @@ def process_command(command: str) -> CommandResult:
 
     # Website command block
 
-    if command == "open" or command.startswith("open site") or command.startswith("go to"):
-        query = _site_command_query(command, OPEN_SITE_MARKERS)
-        if query:
-            open_site(query)
-        else:
-            speak("No site name received.")
-        return CommandResult.EXECUTED
+    # if command == "open" or command.startswith("open site") or command.startswith("go to"):
+    #     query = _site_command_query(command, OPEN_SITE_MARKERS)
+    #     if query:
+    #         open_site(query)
+    #     else:
+    #         speak("No site name received.")
+    #     return CommandResult.EXECUTED
 
-    if command == "close" or command.startswith("close site"):
-        query = _site_command_query(command, CLOSE_SITE_MARKERS)
-        if query:
-            close_site(query)
-        else:
-            speak("No site name received.")
-        return CommandResult.EXECUTED
+    # if command == "close" or command.startswith("close site"):
+    #     query = _site_command_query(command, CLOSE_SITE_MARKERS)
+    #     if query:
+    #         close_site(query)
+    #     else:
+    #         speak("No site name received.")
+    #     return CommandResult.EXECUTED
 
     # Media command block
 
