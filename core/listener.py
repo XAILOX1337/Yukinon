@@ -1,10 +1,11 @@
 import json
 import os
+import threading
 
 import pyaudio
 from vosk import KaldiRecognizer, Model
 
-from config import VOCABULARY_LIST, WAKE_WORDS
+from config import IDLE_TIMEOUT, VOCABULARY_LIST, WAKE_WORDS
 
 
 model_path = "data/models/vosk-model-en-us"
@@ -29,18 +30,64 @@ stream = mic.open(
 stream.start_stream()
 
 
-def _read_recognized_text(recognizer):
-    while True:
+# Idle / sleep state machine
+
+_state = "ACTIVE"  # "ACTIVE" or "SLEEP"
+_idle_timer = None
+
+
+def _enter_sleep_mode():
+    global _state
+    if _state != "SLEEP":
+        print("\n[Idle timeout. Entering sleep mode.]")
+        print("[Say 'Jarvis' or 'Yukinon' to wake up.]")
+        _state = "SLEEP"
+
+
+def _exit_sleep_mode():
+    global _state
+    _state = "ACTIVE"
+    _start_idle_timer()
+    print("[Active mode: listening for commands.]")
+
+
+def _start_idle_timer():
+    """Start (or restart) the idle timer that flips state to SLEEP."""
+    global _idle_timer
+    if _idle_timer:
+        _idle_timer.cancel()
+    _idle_timer = threading.Timer(IDLE_TIMEOUT, _enter_sleep_mode)
+    _idle_timer.daemon = True
+    _idle_timer.start()
+
+
+def ack_command(success: bool = True):
+    """Reset the idle timer after a successful command execution."""
+    if success and _state == "ACTIVE":
+        _start_idle_timer()
+
+
+# Recognizer helpers
+
+
+def _read_until_result(recognizer, state_guard):
+    """Read audio and feed to the recognizer.
+
+    Returns:
+        str: the recognized text (may be empty if Vosk returned a silent
+             final result).
+        None: if state_guard() returned False (state changed during read).
+    """
+    while state_guard():
         data = stream.read(4000, exception_on_overflow=False)
 
         if recognizer.AcceptWaveform(data):
             result = json.loads(recognizer.Result())
             text = result.get("text", "")
-
             if text:
                 print(f"You said: {text}")
-                return text
-            return ""
+            return text
+    return None
 
 
 def _detect_wake_word(text):
@@ -61,40 +108,75 @@ def _strip_wake_prefix(text, wake):
 
 
 def listen():
-    """Wake-word-activated command listener.
+    """Idle-aware command listener.
 
-    Listens with the constrained command vocabulary. When a wake word is
-    detected, returns the text after the wake word as the command.
-    Utterances without a wake word are ignored. If the wake word is spoken
-    alone, listens again for the follow-up command.
+    Active mode: listens for any command (no wake word required).
+    Sleep mode: requires a wake word ('Yukinon' or 'Jarvis') to wake up.
+    Switches to sleep mode after IDLE_TIMEOUT seconds with no successful
+    command. Call ack_command(True) after a command is executed to reset
+    the idle timer.
     """
-    print("\n[Listening for wake word...]")
+    # Initialize timer on first call
+    if _state == "ACTIVE" and _idle_timer is None:
+        _start_idle_timer()
+
     while True:
-        text = _read_recognized_text(command_recognizer)
+        if _state == "SLEEP":
+            text = _read_until_result(
+                command_recognizer, lambda: _state == "SLEEP"
+            )
+
+            # State changed (should not happen in SLEEP, but defensive)
+            if text is None:
+                continue
+
+            # Noise in sleep mode — keep listening
+            if not text:
+                continue
+
+            wake = _detect_wake_word(text)
+            if not wake:
+                # Ignore utterances without a wake word in sleep mode
+                print(f"[Ignored (sleep mode, no wake word)]: {text}")
+                continue
+
+            # Extract command after the wake word
+            command = _strip_wake_prefix(text, wake)
+            print(f"[Wake word detected: {wake}]")
+            _exit_sleep_mode()
+
+            if command:
+                # Wake word + command in one utterance
+                return command
+            # Wake word alone — continue loop (now in ACTIVE mode)
+            continue
+
+        # ACTIVE mode: listen for any command
+        text = _read_until_result(
+            command_recognizer, lambda: _state == "ACTIVE"
+        )
+
+        # State changed (fell asleep during read) — re-evaluate at top
+        if text is None:
+            continue
+
+        # Noise in active mode — keep listening
         if not text:
             continue
 
-        wake = _detect_wake_word(text)
-        if not wake:
-            # Ignore utterances without a wake word
-            print(f"[Ignored (no wake word)]: {text}")
-            continue
-
-        # Extract command after the wake word
-        command = _strip_wake_prefix(text, wake)
-
-        if command:
-            print(f"[Command]: {command}")
-            return command
-
-        # Wake word alone — wait for follow-up command
-        print("[Wake word detected, listening for command...]")
-        follow_up = _read_recognized_text(command_recognizer)
-        if follow_up:
-            print(f"[Command]: {follow_up}")
-            return follow_up
+        return text
 
 
 def listen_free():
     print("\n[Listening free-form...]")
-    return _read_recognized_text(free_recognizer)
+    while True:
+        data = stream.read(4000, exception_on_overflow=False)
+
+        if free_recognizer.AcceptWaveform(data):
+            result = json.loads(free_recognizer.Result())
+            text = result.get("text", "")
+
+            if text:
+                print(f"You said: {text}")
+                return text
+            return ""

@@ -1,7 +1,8 @@
-WAKE_WORDS = ("yukinon", "jarvis")
+WAKE_WORDS = ("mai", "jarvis")
+IDLE_TIMEOUT = 5 * 60  # seconds; switches to sleep mode after this many seconds without a successful command
 
 VOCABULARY_LIST = [
-    "yukinon", "jarvis",
+    "mai", "jarvis",
     "exit", "stop",
     "hello", "hi", "how are you",
     "switch",

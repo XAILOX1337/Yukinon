@@ -1,5 +1,6 @@
 import difflib
 import re
+from enum import Enum
 
 from actions.media_control import (
     next_track,
@@ -31,6 +32,13 @@ from core.listener import listen_free
 from tts.speaker import speak
 
 
+class CommandResult(Enum):
+    """Outcome of command processing."""
+    EXECUTED = "executed"  # Command recognized and run.
+    UNKNOWN = "unknown"    # Command not recognized.
+    EXIT = "exit"          # Exit signal received.
+
+
 OPEN_SITE_MARKERS = ("open site", "go to", "open")
 CLOSE_SITE_MARKERS = ("close site", "close")
 
@@ -51,54 +59,66 @@ def _site_command_query(command: str, markers):
     return listen_free()
 
 
-def process_command(command: str) -> bool:
+def process_command(command: str) -> CommandResult:
     command = command.lower()
 
     if "exit" in command:
-        return True
+        return CommandResult.EXIT
 
-    elif "hello" in command or "hi" in command:
+    if "mai" in command or "jarvis" in command:
+        return CommandResult.EXECUTED
+
+    if "hello" in command or "hi" in command:
         speak("Greetings.")
+        return CommandResult.EXECUTED
 
-    elif "how are you" in command:
+    if "how are you" in command:
         speak("All systems are operating normally.")
+        return CommandResult.EXECUTED
 
     # Browser tab command block
 
-    elif command in ("next tab", "switch tab"):
+    if command in ("next tab", "switch tab"):
         next_tab()
+        return CommandResult.EXECUTED
 
-    elif command in ("previous tab", "prev tab"):
+    if command in ("previous tab", "prev tab"):
         previous_tab()
+        return CommandResult.EXECUTED
 
-    elif command == "new tab":
+    if command == "new tab":
         new_tab()
+        return CommandResult.EXECUTED
 
-    elif command == "close tab":
+    if command == "close tab":
         close_current_tab()
+        return CommandResult.EXECUTED
 
-    elif command == "reopen tab":
+    if command == "reopen tab":
         reopen_tab()
+        return CommandResult.EXECUTED
 
     # Website command block
 
-    elif command == "open" or command.startswith("open site") or command.startswith("go to"):
+    if command == "open" or command.startswith("open site") or command.startswith("go to"):
         query = _site_command_query(command, OPEN_SITE_MARKERS)
         if query:
             open_site(query)
         else:
             speak("No site name received.")
+        return CommandResult.EXECUTED
 
-    elif command == "close" or command.startswith("close site"):
+    if command == "close" or command.startswith("close site"):
         query = _site_command_query(command, CLOSE_SITE_MARKERS)
         if query:
             close_site(query)
         else:
             speak("No site name received.")
+        return CommandResult.EXECUTED
 
     # Media command block
 
-    elif any(word in command for word in ("next", "previous", "prev", "back", "pause", "play", "resume", "continue")):
+    if any(word in command for word in ("next", "previous", "prev", "back", "pause", "play", "resume", "continue")):
         MEDIA_ACTIONS = {
             "next": (["next"], next_track),
             "prev": (["previous", "prev", "back"], prev_track),
@@ -125,7 +145,7 @@ def process_command(command: str) -> bool:
         if not app_part:
             print("Command targets the active window")
             dict(MEDIA_ACTIONS)[action_key][1]()
-            return False
+            return CommandResult.EXECUTED
 
         # 4. Remaining text means a background application is the target
         glued_app = app_part.replace(" ", "")
@@ -143,12 +163,14 @@ def process_command(command: str) -> bool:
         else:
             print(f"Could not recognize an application in phrase: {app_part}")
 
+        return CommandResult.EXECUTED
+
     # Alt + Tab block
 
-    elif command.startswith("switch"):
+    if command.startswith("switch"):
         if command.strip() == "switch":
             switch_window()
-            return False
+            return CommandResult.EXECUTED
 
         match = re.search(r"switch\s+(.+)", command)
         if match:
@@ -171,24 +193,31 @@ def process_command(command: str) -> bool:
         else:
             switch_window()
 
+        return CommandResult.EXECUTED
+
     # Window state control block
 
-    elif command in ("minimize", "minimize window"):
+    if command in ("minimize", "minimize window"):
         minimize_active()
+        return CommandResult.EXECUTED
 
-    elif command in ("maximize", "maximize window", "fullscreen", "full screen"):
+    if command in ("maximize", "maximize window", "fullscreen", "full screen"):
         toggle_maximize()
+        return CommandResult.EXECUTED
 
-    elif command == "minimize all":
+    if command == "minimize all":
         minimize_all()
+        return CommandResult.EXECUTED
 
-    elif command == "restore all":
+    if command == "restore all":
         restore_all()
+        return CommandResult.EXECUTED
 
-    elif command == "show desktop":
+    if command == "show desktop":
         toggle_show_desktop()
+        return CommandResult.EXECUTED
 
-    else:
-        speak("I did not quite understand. Please repeat.")
+    # Fallback
 
-    return False
+    speak("I did not quite understand. Please repeat.")
+    return CommandResult.UNKNOWN
