@@ -16,7 +16,16 @@ from actions.web_control import (
     previous_tab,
     reopen_tab,
 )
-from actions.window_control import find_app_hwnd, switch_to_app, switch_window
+from actions.window_control import (
+    find_app_hwnd,
+    minimize_active,
+    minimize_all,
+    restore_all,
+    switch_to_app,
+    switch_window,
+    toggle_maximize,
+    toggle_show_desktop,
+)
 from config import APP_ALIASES
 from core.listener import listen_free
 from tts.speaker import speak
@@ -161,6 +170,23 @@ def process_command(command: str) -> bool:
                 speak(f"Could not find running application {app_name}. Check the alias dictionary.")
         else:
             switch_window()
+
+    # Window state control block
+
+    elif command in ("minimize", "minimize window"):
+        minimize_active()
+
+    elif command in ("maximize", "maximize window", "fullscreen", "full screen"):
+        toggle_maximize()
+
+    elif command == "minimize all":
+        minimize_all()
+
+    elif command == "restore all":
+        restore_all()
+
+    elif command == "show desktop":
+        toggle_show_desktop()
 
     else:
         speak("I did not quite understand. Please repeat.")

@@ -3,6 +3,8 @@ import time
 import keyboard
 import psutil
 import pygetwindow as gw
+import win32con
+import win32gui
 from pywinauto import Desktop
 
 from config import APP_ALIASES
@@ -88,3 +90,57 @@ def find_app_hwnd(spoken_name: str):
                 return win.handle  # Numeric window handle
 
     return None
+
+
+# Window state control
+
+
+def minimize_active():
+    """Minimize the currently focused window."""
+    print("Action: Minimize active window")
+    hwnd = win32gui.GetForegroundWindow()
+    if not hwnd:
+        return False
+    win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
+    time.sleep(0.05)
+    return True
+
+
+def toggle_maximize():
+    """Maximize or restore the currently focused window."""
+    print("Action: Toggle maximize")
+    hwnd = win32gui.GetForegroundWindow()
+    if not hwnd:
+        return False
+
+    show_cmd = win32gui.GetWindowPlacement(hwnd)[1]
+    if show_cmd == win32con.SW_SHOWMAXIMIZED:
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+    else:
+        win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+    time.sleep(0.05)
+    return True
+
+
+def minimize_all():
+    """Minimize all windows."""
+    print("Action: Minimize all windows")
+    keyboard.send("win+m")
+    time.sleep(0.05)
+    return True
+
+
+def restore_all():
+    """Undo 'minimize all'."""
+    print("Action: Restore all windows")
+    keyboard.send("win+shift+m")
+    time.sleep(0.05)
+    return True
+
+
+def toggle_show_desktop():
+    """Toggle the 'show desktop' state."""
+    print("Action: Toggle show desktop")
+    keyboard.send("win+d")
+    time.sleep(0.05)
+    return True

@@ -1,3 +1,5 @@
+WAKE_WORDS = ("yukinon", "jarvis")
+
 VOCABULARY_LIST = [
     "yukinon", "jarvis",
     "exit", "stop",
@@ -9,6 +11,8 @@ VOCABULARY_LIST = [
     "open", "close", "site", "tab", "new", "reopen", "go", "to",
     "next tab", "previous tab", "new tab", "close tab", "reopen tab", "switch tab",
     "open site", "close site", "go to",
+    "minimize", "maximize", "fullscreen", "full screen", "restore", "show", "desktop", "window", "all",
+    "minimize window", "maximize window", "minimize all", "restore all", "show desktop",
     "spotify", "chrome", "google", "vs code", "code", "visual studio code",
     "telegram", "tg", "discord", "notepad", "hap", "firefox", "browser",
     "steam", "explorer", "task manager", "obsidian", "youtube"

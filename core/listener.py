@@ -4,7 +4,7 @@ import os
 import pyaudio
 from vosk import KaldiRecognizer, Model
 
-from config import VOCABULARY_LIST
+from config import VOCABULARY_LIST, WAKE_WORDS
 
 
 model_path = "data/models/vosk-model-en-us"
@@ -43,9 +43,56 @@ def _read_recognized_text(recognizer):
             return ""
 
 
+def _detect_wake_word(text):
+    """Return the first wake word found in text (case-insensitive), or None."""
+    text_lower = text.lower()
+    for wake in WAKE_WORDS:
+        if wake in text_lower:
+            return wake
+    return None
+
+
+def _strip_wake_prefix(text, wake):
+    """Remove everything up to and including the first wake word occurrence."""
+    idx = text.lower().find(wake)
+    if idx == -1:
+        return text.strip(" .,")
+    return text[idx + len(wake):].strip(" .,")
+
+
 def listen():
-    print("\n[Listening...]")
-    return _read_recognized_text(command_recognizer)
+    """Wake-word-activated command listener.
+
+    Listens with the constrained command vocabulary. When a wake word is
+    detected, returns the text after the wake word as the command.
+    Utterances without a wake word are ignored. If the wake word is spoken
+    alone, listens again for the follow-up command.
+    """
+    print("\n[Listening for wake word...]")
+    while True:
+        text = _read_recognized_text(command_recognizer)
+        if not text:
+            continue
+
+        wake = _detect_wake_word(text)
+        if not wake:
+            # Ignore utterances without a wake word
+            print(f"[Ignored (no wake word)]: {text}")
+            continue
+
+        # Extract command after the wake word
+        command = _strip_wake_prefix(text, wake)
+
+        if command:
+            print(f"[Command]: {command}")
+            return command
+
+        # Wake word alone — wait for follow-up command
+        print("[Wake word detected, listening for command...]")
+        follow_up = _read_recognized_text(command_recognizer)
+        if follow_up:
+            print(f"[Command]: {follow_up}")
+            return follow_up
 
 
 def listen_free():
