@@ -18,10 +18,8 @@ from actions.volume_control import (
 )
 from actions.web_control import (
     close_current_tab,
-    close_site,
     new_tab,
     next_tab,
-    open_site,
     previous_tab,
     reopen_tab,
 )
@@ -35,8 +33,7 @@ from actions.window_control import (
     toggle_maximize,
     toggle_show_desktop,
 )
-from config import APP_ALIASES
-from core.listener import listen_free
+from config import APP_ALIASES, WAKE_WORDS
 from tts.speaker import speak
 
 
@@ -47,11 +44,10 @@ class CommandResult(Enum):
     EXIT = "exit"          # Exit signal received.
 
 
-OPEN_SITE_MARKERS = ("open site", "go to", "open")
-CLOSE_SITE_MARKERS = ("close site", "close")
 TERMINATE_MARKERS = ("terminate", "kill", "shut down", "close")
 # Trailing space keeps "opening" out of the query
 OPEN_MARKERS = ("open ", "launch ", "run ")
+ALIAS_KEYS = list(APP_ALIASES)
 
 
 def _extract_marker_query(command: str, markers):
@@ -60,27 +56,35 @@ def _extract_marker_query(command: str, markers):
             return command[len(marker):].strip(" .")
     return ""
 
-# This function works kinda bad, so i decided to leave it like this for better times
-# def _site_command_query(command: str, markers):
-#     query = _extract_marker_query(command, markers)
-#     if query:
-#         return query
 
-#     speak("Which site?")
-#     return listen_free()
+def _fuzzy_app_name(raw_name: str, cutoff: float = 0.6):
+    """Correct a misheard application name against the alias dictionary."""
+    glued_name = raw_name.replace(" ", "")
+    matches = difflib.get_close_matches(glued_name, ALIAS_KEYS, n=1, cutoff=cutoff)
+
+    if matches:
+        print(f"[Fuzzy match] Heard '{raw_name}', corrected to '{matches[0]}'")
+        return matches[0]
+    return None
 
 
 def process_command(command: str) -> CommandResult:
     command = command.lower()
+    words = command.split()
 
-    # Word boundaries keep "exit" from matching names like "exitlag"
-    if re.search(r"\b(exit|stop)\b", command):
+    # A wake word is stripped from an active command instead of swallowing it
+    if any(word in WAKE_WORDS for word in words):
+        words = [word for word in words if word not in WAKE_WORDS]
+        if not words:
+            return CommandResult.EXECUTED
+        command = " ".join(words)
+
+    # Exit only when the utterance carries nothing else, otherwise
+    # "open exit lag" would quit the assistant
+    if words and set(words) <= {"exit", "stop"}:
         return CommandResult.EXIT
 
-    if "mai" in command or "jarvis" in command:
-        return CommandResult.EXECUTED
-
-    if "hello" in command or "hi" in command:
+    if set(words) & {"hello", "hi"}:
         speak("Greetings.")
         return CommandResult.EXECUTED
 
@@ -110,51 +114,28 @@ def process_command(command: str) -> CommandResult:
         reopen_tab()
         return CommandResult.EXECUTED
 
-    # Website command block
-
-    # if command == "open" or command.startswith("open site") or command.startswith("go to"):
-    #     query = _site_command_query(command, OPEN_SITE_MARKERS)
-    #     if query:
-    #         open_site(query)
-    #     else:
-    #         speak("No site name received.")
-    #     return CommandResult.EXECUTED
-
-    # if command == "close" or command.startswith("close site"):
-    #     query = _site_command_query(command, CLOSE_SITE_MARKERS)
-    #     if query:
-    #         close_site(query)
-    #     else:
-    #         speak("No site name received.")
-    #     return CommandResult.EXECUTED
-
-    # Application launch block ("open site" and "go to" belong to the website block above)
+    # Application launch block
 
     if command in ("open", "launch", "run"):
         speak("Which application?")
         return CommandResult.EXECUTED
 
     launch_query = _extract_marker_query(command, OPEN_MARKERS)
-    if launch_query and not command.startswith(("open site", "go to")):
+    if launch_query:
         if not open_app(launch_query):
-            speak(f"Could not open {launch_query}.")
+            print(f"Could not open {launch_query}.")
 
         return CommandResult.EXECUTED
 
-    # Process termination block ("close site" belongs to the website block above)
+    # Process termination block
 
     terminate_query = _extract_marker_query(command, TERMINATE_MARKERS)
-    if terminate_query and not command.startswith("close site"):
-        glued_name = terminate_query.replace(" ", "")
-
-        known_apps = list(APP_ALIASES.keys())
-        matches = difflib.get_close_matches(glued_name, known_apps, n=1, cutoff=0.6)
-
-        if matches:
-            app_name = matches[0]
-            print(f"[Fuzzy match] Heard '{terminate_query}', corrected to '{app_name}'")
-        else:
-            app_name = glued_name
+    if terminate_query:
+        # Killing is destructive: a stricter cutoff keeps a garbage word from
+        # fuzzy-matching a real application ("site" would become "steam")
+        app_name = _fuzzy_app_name(terminate_query, cutoff=0.7)
+        if app_name is None:
+            app_name = terminate_query.replace(" ", "")
 
         if not terminate_app(app_name):
             speak(f"Could not find running application {app_name}.")
@@ -171,35 +152,29 @@ def process_command(command: str) -> CommandResult:
         }
 
         # 1. Action selection
-        action_key = "play_pause"
+        action_key, action_func = "play_pause", play_pause
         for key, (words, func) in MEDIA_ACTIONS.items():
-            if any(w in command for w in words):
-                action_key = key
+            if any(word in command for word in words):
+                action_key, action_func = key, func
                 break
 
         # 2. Media keyword removal and application name extraction
         stop_words = [word for words, _ in MEDIA_ACTIONS.values() for word in words]
         stop_words += ["track", "song", "music", "on", "to", "the"]
-        app_part = command
-        for word in stop_words:
-            app_part = app_part.replace(word, "")
 
-        app_part = app_part.replace("  ", " ").strip()
+        # Token filtering keeps substrings safe: replace() would mangle names
+        app_part = " ".join(word for word in command.split() if word not in stop_words)
 
         # 3. Empty remainder means the active window is the target
         if not app_part:
             print("Command targets the active window")
-            dict(MEDIA_ACTIONS)[action_key][1]()
+            action_func()
             return CommandResult.EXECUTED
 
         # 4. Remaining text means a background application is the target
-        glued_app = app_part.replace(" ", "")
-        matches = difflib.get_close_matches(glued_app, list(APP_ALIASES.keys()), n=1, cutoff=0.6)
+        app_name = _fuzzy_app_name(app_part)
 
-        if matches:
-            app_name = matches[0]
-            print(f"[Fuzzy match] Background command for: {app_name}")
-
+        if app_name:
             hwnd = find_app_hwnd(app_name)
             if hwnd:
                 send_media_command_to_background(hwnd, action_key)
@@ -220,10 +195,10 @@ def process_command(command: str) -> CommandResult:
         }
 
         # 1. Action selection
-        action_key = None
+        action_key, action_func = None, None
         for key, (words, func) in VOLUME_ACTIONS.items():
             if any(word in command for word in words):
-                action_key = key
+                action_key, action_func = key, func
                 break
 
         if action_key is None:
@@ -239,17 +214,13 @@ def process_command(command: str) -> CommandResult:
 
         # 3. Empty remainder means the system volume is the target
         if not app_part:
-            dict(VOLUME_ACTIONS)[action_key][1]()
+            action_func()
             return CommandResult.EXECUTED
 
         # 4. Remaining text means a background application is the target
-        glued_app = app_part.replace(" ", "")
-        matches = difflib.get_close_matches(glued_app, list(APP_ALIASES.keys()), n=1, cutoff=0.6)
+        app_name = _fuzzy_app_name(app_part)
 
-        if matches:
-            app_name = matches[0]
-            print(f"[Fuzzy match] Background volume for: {app_name}")
-
+        if app_name:
             if not send_volume_to_background(app_name, action_key):
                 speak(f"Could not change volume for {app_name}.")
         else:
@@ -264,19 +235,12 @@ def process_command(command: str) -> CommandResult:
             switch_window()
             return CommandResult.EXECUTED
 
-        match = re.search(r"switch\s+(.+)", command)
+        match = re.search(r"switch\s+(?:to\s+)?(.+)", command)
         if match:
             raw_app_name = match.group(1)
-            glued_name = raw_app_name.replace(" ", "")
-
-            known_apps = list(APP_ALIASES.keys())
-            matches = difflib.get_close_matches(glued_name, known_apps, n=1, cutoff=0.6)
-
-            if matches:
-                app_name = matches[0]
-                print(f"[Fuzzy match] Heard '{raw_app_name}', corrected to '{app_name}'")
-            else:
-                app_name = glued_name
+            app_name = _fuzzy_app_name(raw_app_name)
+            if app_name is None:
+                app_name = raw_app_name.replace(" ", "")
 
             success = switch_to_app(app_name)
 
@@ -311,5 +275,4 @@ def process_command(command: str) -> CommandResult:
 
     # Fallback
 
-    
     return CommandResult.UNKNOWN

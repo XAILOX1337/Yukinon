@@ -1,9 +1,7 @@
-import time
-
 import keyboard
-import psutil
 from pycaw.pycaw import AudioUtilities
 
+from actions.process_control import find_pids_by_exe
 from config import APP_ALIASES
 
 # Per-application volume step, part of a session volume (0.0 - 1.0)
@@ -17,21 +15,18 @@ def volume_up():
     """Raise the system volume."""
     print("Action: Volume up")
     keyboard.send("volume up")
-    time.sleep(0.01)
 
 
 def volume_down():
     """Lower the system volume."""
     print("Action: Volume down")
     keyboard.send("volume down")
-    time.sleep(0.01)
 
 
 def toggle_mute():
     """Mute or unmute the system volume."""
     print("Action: Toggle mute")
     keyboard.send("volume mute")
-    time.sleep(0.01)
 
 
 # Background functions (per-application audio session)
@@ -48,10 +43,7 @@ def send_volume_to_background(spoken_name: str, action: str) -> bool:
     print(f"Audio session search: {target_exe}")
 
     # 1. Process ID collection
-    target_pids = []
-    for proc in psutil.process_iter(["pid", "name"]):
-        if proc.info["name"] and proc.info["name"].lower() == target_exe.lower():
-            target_pids.append(proc.info["pid"])
+    target_pids = find_pids_by_exe(target_exe)
 
     if not target_pids:
         print(f"No running processes found for {target_exe}.")

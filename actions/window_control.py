@@ -1,12 +1,12 @@
 import time
 
 import keyboard
-import psutil
-import pygetwindow as gw
+import win32api
 import win32con
 import win32gui
-from pywinauto import Desktop
+import win32process
 
+from actions.process_control import find_pids_by_exe
 from config import APP_ALIASES
 
 
@@ -18,6 +18,81 @@ def switch_window():
     time.sleep(0.03)
     keyboard.send("tab")
     keyboard.release("alt")
+
+
+# Window lookup helpers shared with web_control
+
+
+def find_windows_by_pids(target_pids):
+    """Window handles of visible top-level windows for the given process IDs.
+
+    Win32 enumeration instead of a UIA scan: ~0.2 ms instead of ~400 ms.
+    Handles come back in z-order, topmost first.
+    """
+    wanted = set(target_pids)
+    found = []
+
+    def _collect(hwnd, _):
+        if win32gui.IsWindowVisible(hwnd):
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            if pid in wanted:
+                found.append(hwnd)
+
+    win32gui.EnumWindows(_collect, None)
+    return found
+
+
+def _wait_foreground(hwnd: int, timeout: float) -> bool:
+    """Foreground switches are not synchronous — poll briefly before giving up."""
+    deadline = time.perf_counter() + timeout
+    while True:
+        if win32gui.GetForegroundWindow() == hwnd:
+            return True
+        if time.perf_counter() >= deadline:
+            return False
+        time.sleep(0.02)
+
+
+def focus_hwnd(hwnd: int) -> bool:
+    """Restore a window and bring it to the front, verifying the result."""
+    if win32gui.IsIconic(hwnd):
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+
+    # 1. Plain request — works when this process holds the foreground rights
+    granted = True
+    try:
+        win32gui.SetForegroundWindow(hwnd)
+    except Exception:
+        granted = False
+    if granted and _wait_foreground(hwnd, 0.15):
+        return True
+
+    # 2. Foreground lock: join the window's input queue briefly
+    attached = True
+    try:
+        target_tid, _ = win32process.GetWindowThreadProcessId(hwnd)
+        current_tid = win32api.GetCurrentThreadId()
+        win32process.AttachThreadInput(current_tid, target_tid, True)
+        try:
+            win32gui.BringWindowToTop(hwnd)
+            win32gui.SetForegroundWindow(hwnd)
+        finally:
+            win32process.AttachThreadInput(current_tid, target_tid, False)
+    except Exception:
+        attached = False
+    if attached and _wait_foreground(hwnd, 0.15):
+        return True
+
+    # 3. Last resort: an Alt press releases the lock for one request
+    try:
+        keyboard.press("alt")
+        try:
+            win32gui.SetForegroundWindow(hwnd)
+        finally:
+            keyboard.release("alt")
+    except Exception:
+        pass
+    return _wait_foreground(hwnd, 0.15)
 
 
 def switch_to_app(spoken_name: str):
@@ -36,10 +111,7 @@ def focus_app_by_exe(target_exe: str):
     print(f"Process search: {target_exe}")
 
     # 1. Process ID collection
-    target_pids = []
-    for proc in psutil.process_iter(["pid", "name"]):
-        if proc.info["name"] and proc.info["name"].lower() == target_exe.lower():
-            target_pids.append(proc.info["pid"])
+    target_pids = find_pids_by_exe(target_exe)
 
     if not target_pids:
         print(f"No running processes found for {target_exe}.")
@@ -47,24 +119,16 @@ def focus_app_by_exe(target_exe: str):
 
     print(f"Found PID list: {target_pids}")
 
-    # 2. Window search by process ID
-    desktop = Desktop(backend="uia")
-    windows = desktop.windows()
+    # 2. Window search by process ID, topmost first
+    for hwnd in find_windows_by_pids(target_pids):
+        print(f"Window found. Handle: {hwnd}, Title: '{win32gui.GetWindowText(hwnd)}'")
 
-    for win in windows:
-        if win.process_id() in target_pids:
-            print(f"Window found. Title: '{win.window_text()}', PID: {win.process_id()}")
-            try:
-                if win.is_minimized():
-                    win.restore()
-                win.set_focus()
-                return True
-            except Exception:
-                # Background or hidden windows can fail activation
-                print(f"Activation failed for PID {win.process_id()}. Continuing search...")
-                continue
+        if focus_hwnd(hwnd):
+            return True
 
-    print("No UI window found among the target processes.")
+        print(f"Activation failed for handle {hwnd}. Continuing search...")
+
+    print("No visible window found among the target processes.")
     return False
 
 
@@ -76,25 +140,14 @@ def find_app_hwnd(spoken_name: str):
         return None
 
     # 1. Process ID collection
-    target_pids = []
-    for proc in psutil.process_iter(["pid", "name"]):
-        if proc.info["name"] and proc.info["name"].lower() == target_exe.lower():
-            target_pids.append(proc.info["pid"])
+    target_pids = find_pids_by_exe(target_exe)
 
     if not target_pids:
         return None
 
     # 2. Visible window search
-    desktop = Desktop(backend="uia")
-    windows = desktop.windows()
-
-    for win in windows:
-        if win.process_id() in target_pids:
-            # Visibility and interface check
-            if win.is_visible() and win.handle:
-                return win.handle  # Numeric window handle
-
-    return None
+    windows = find_windows_by_pids(target_pids)
+    return windows[0] if windows else None
 
 
 # Window state control
@@ -107,7 +160,6 @@ def minimize_active():
     if not hwnd:
         return False
     win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
-    time.sleep(0.05)
     return True
 
 
@@ -123,7 +175,6 @@ def toggle_maximize():
         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
     else:
         win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
-    time.sleep(0.05)
     return True
 
 
@@ -131,7 +182,6 @@ def minimize_all():
     """Minimize all windows."""
     print("Action: Minimize all windows")
     keyboard.send("win+m")
-    time.sleep(0.05)
     return True
 
 
@@ -139,7 +189,6 @@ def restore_all():
     """Undo 'minimize all'."""
     print("Action: Restore all windows")
     keyboard.send("win+shift+m")
-    time.sleep(0.05)
     return True
 
 
@@ -147,5 +196,4 @@ def toggle_show_desktop():
     """Toggle the 'show desktop' state."""
     print("Action: Toggle show desktop")
     keyboard.send("win+d")
-    time.sleep(0.05)
     return True

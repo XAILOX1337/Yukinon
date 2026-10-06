@@ -9,9 +9,8 @@ VOCABULARY_LIST = [
     "pause", "play", "resume", "continue",
     "next", "previous", "prev", "back",
     "track", "song", "music",
-    "open", "launch", "run", "close", "site", "tab", "new", "reopen", "go", "to",
+    "open", "launch", "run", "close", "tab", "new", "reopen", "to",
     "next tab", "previous tab", "new tab", "close tab", "reopen tab", "switch tab",
-    "open site", "close site", "go to",
     "minimize", "maximize", "fullscreen", "full screen", "restore", "show", "desktop", "window", "all",
     "minimize window", "maximize window", "minimize all", "restore all", "show desktop",
     "terminate", "kill", "shut down", "shutdown",
@@ -19,8 +18,8 @@ VOCABULARY_LIST = [
     "volume up", "volume down",
     "spotify", "chrome", "google", "vs code", "code", "visual studio code", "visual studio",
     "telegram", "tg", "discord", "notepad", "hap", "happ", "firefox", "zen", "browser",
-    "steam", "explorer", "file", "file explorer", "task manager", "obsidian", "youtube",
-    "lightroom", "adobe lightroom classic", "exitlag", "exit lag",
+    "steam", "explorer", "file", "file explorer", "task manager", "obsidian",
+    "lightroom", "adobe lightroom classic", "exit lag",
     "intellij", "idea", "intellij idea", "nvidia", "app", "nvidia app"
 ]
 
@@ -44,4 +43,14 @@ APP_ALIASES = {
     "explorer": "explorer.exe",
     "task manager": "taskmgr.exe",
     "obsidian": "obsidian.exe",
+    # Names taken from the real taskbar pin shortcuts
+    "visual studio": "devenv.exe",
+    "lightroom": "Lightroom.exe",
+    "adobe lightroom classic": "Lightroom.exe",
+    "intellij": "idea64.exe",
+    "idea": "idea64.exe",
+    "intellij idea": "idea64.exe",
+    "nvidia": "NVIDIA App.exe",
+    "nvidia app": "NVIDIA App.exe",
+    "exit lag": "ExitLag.exe",
 }
