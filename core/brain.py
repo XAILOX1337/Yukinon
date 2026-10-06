@@ -10,6 +10,12 @@ from actions.media_control import (
     send_media_command_to_background,
 )
 from actions.process_control import terminate_app
+from actions.volume_control import (
+    send_volume_to_background,
+    toggle_mute,
+    volume_down,
+    volume_up,
+)
 from actions.web_control import (
     close_current_tab,
     close_site,
@@ -199,6 +205,53 @@ def process_command(command: str) -> CommandResult:
                 send_media_command_to_background(hwnd, action_key)
             else:
                 print(f"Application {app_name} is not running.")
+        else:
+            print(f"Could not recognize an application in phrase: {app_part}")
+
+        return CommandResult.EXECUTED
+
+    # Volume control block
+
+    if any(word in command for word in ("volume", "louder", "quieter", "mute")):
+        VOLUME_ACTIONS = {
+            "volume_up": (["louder", "up"], volume_up),
+            "volume_down": (["quieter", "down"], volume_down),
+            "mute": (["mute"], toggle_mute),
+        }
+
+        # 1. Action selection
+        action_key = None
+        for key, (words, func) in VOLUME_ACTIONS.items():
+            if any(word in command for word in words):
+                action_key = key
+                break
+
+        if action_key is None:
+            speak("Louder or quieter?")
+            return CommandResult.EXECUTED
+
+        # 2. Volume keyword removal and application name extraction
+        stop_words = [word for words, _ in VOLUME_ACTIONS.values() for word in words]
+        stop_words += ["volume", "for", "the", "on", "to"]
+
+        # Token filtering keeps substrings safe: replace() would turn "discord" into "dscord"
+        app_part = " ".join(word for word in command.split() if word not in stop_words)
+
+        # 3. Empty remainder means the system volume is the target
+        if not app_part:
+            dict(VOLUME_ACTIONS)[action_key][1]()
+            return CommandResult.EXECUTED
+
+        # 4. Remaining text means a background application is the target
+        glued_app = app_part.replace(" ", "")
+        matches = difflib.get_close_matches(glued_app, list(APP_ALIASES.keys()), n=1, cutoff=0.6)
+
+        if matches:
+            app_name = matches[0]
+            print(f"[Fuzzy match] Background volume for: {app_name}")
+
+            if not send_volume_to_background(app_name, action_key):
+                speak(f"Could not change volume for {app_name}.")
         else:
             print(f"Could not recognize an application in phrase: {app_part}")
 

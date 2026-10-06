@@ -15,6 +15,8 @@ VOCABULARY_LIST = [
     "minimize", "maximize", "fullscreen", "full screen", "restore", "show", "desktop", "window", "all",
     "minimize window", "maximize window", "minimize all", "restore all", "show desktop",
     "terminate", "kill", "shut down", "shutdown",
+    "volume", "louder", "quieter", "up", "down", "mute",
+    "volume up", "volume down",
     "spotify", "chrome", "google", "vs code", "code", "visual studio code", "visual studio",
     "telegram", "tg", "discord", "notepad", "hap", "happ", "firefox", "zen", "browser",
     "steam", "explorer", "file", "file explorer", "task manager", "obsidian", "youtube",

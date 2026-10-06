@@ -509,7 +509,6 @@ description = "Pure Python COM package"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
-markers = "sys_platform == \"win32\""
 files = [
     {file = "comtypes-1.4.17-py3-none-any.whl", hash = "sha256:4e0a221dde2c589b82977bed802efd71cd5eb67a380347b732e02735e597f586"},
     {file = "comtypes-1.4.17.tar.gz", hash = "sha256:3d9c1e92ad8daf7600d371e76ee16161a627a5fb70c3144f6e52e78af6034363"},
@@ -1144,6 +1143,22 @@ pyobjc-framework-quartz = {version = "*", markers = "platform_system == \"Darwin
 pyscreeze = ">=0.1.21"
 python3-Xlib = {version = "*", markers = "platform_system == \"Linux\" and python_version >= \"3.0\""}
 pytweening = ">=1.0.4"
+
+[[package]]
+name = "pycaw"
+version = "20260927"
+description = "Python Core Audio Windows Library"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "pycaw-20260927-py3-none-any.whl", hash = "sha256:d5b162a87536956af8dfa0fc53b1c77870a30706445ffd7f92a2ed184f65ddf4"},
+    {file = "pycaw-20260927.tar.gz", hash = "sha256:3a833ace1a76d0cee134366366d64c56ea9552ebc6f572580e4299ad552743f6"},
+]
+
+[package.dependencies]
+comtypes = ">=1.4.8"
+psutil = ">=5.9.0"
 
 [[package]]
 name = "pycparser"
@@ -5610,4 +5625,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "c1c1e2bab3e28858fe786383cd78b46206d791d4342130c2a6989102ada16160"
+content-hash = "c159c30c2952fd43bea9802ea01f18161003f4b55bc413b068eef40d36e83247"
