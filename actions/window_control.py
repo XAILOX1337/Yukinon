@@ -28,6 +28,11 @@ def switch_to_app(spoken_name: str):
         print(f"Word '{spoken_name}' is missing from APP_ALIASES")
         return False
 
+    return focus_app_by_exe(target_exe)
+
+
+def focus_app_by_exe(target_exe: str):
+    """Switch to a running application identified by its executable name."""
     print(f"Process search: {target_exe}")
 
     # 1. Process ID collection

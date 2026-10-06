@@ -1,6 +1,12 @@
+import sys
+
 from core.brain import CommandResult, process_command
 from core.listener import ack_command, listen
 from tts.speaker import speak
+
+# Window titles and application names may contain emoji or other characters
+# the console codepage cannot encode
+sys.stdout.reconfigure(errors="replace")
 
 
 def main():
@@ -24,8 +30,6 @@ def main():
                 ack_command(success=True)
             # CommandResult.UNKNOWN — leave timer running
 
-
-# TODO: open applications
 
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@ import difflib
 import re
 from enum import Enum
 
+from actions.app_launcher import open_app
 from actions.media_control import (
     next_track,
     play_pause,
@@ -43,6 +44,8 @@ class CommandResult(Enum):
 OPEN_SITE_MARKERS = ("open site", "go to", "open")
 CLOSE_SITE_MARKERS = ("close site", "close")
 TERMINATE_MARKERS = ("terminate", "kill", "shut down", "close")
+# Trailing space keeps "opening" out of the query
+OPEN_MARKERS = ("open ", "launch ", "run ")
 
 
 def _extract_marker_query(command: str, markers):
@@ -64,7 +67,8 @@ def _extract_marker_query(command: str, markers):
 def process_command(command: str) -> CommandResult:
     command = command.lower()
 
-    if "exit" in command:
+    # Word boundaries keep "exit" from matching names like "exitlag"
+    if re.search(r"\b(exit|stop)\b", command):
         return CommandResult.EXIT
 
     if "mai" in command or "jarvis" in command:
@@ -117,6 +121,19 @@ def process_command(command: str) -> CommandResult:
     #     else:
     #         speak("No site name received.")
     #     return CommandResult.EXECUTED
+
+    # Application launch block ("open site" and "go to" belong to the website block above)
+
+    if command in ("open", "launch", "run"):
+        speak("Which application?")
+        return CommandResult.EXECUTED
+
+    launch_query = _extract_marker_query(command, OPEN_MARKERS)
+    if launch_query and not command.startswith(("open site", "go to")):
+        if not open_app(launch_query):
+            speak(f"Could not open {launch_query}.")
+
+        return CommandResult.EXECUTED
 
     # Process termination block ("close site" belongs to the website block above)
 
@@ -181,7 +198,7 @@ def process_command(command: str) -> CommandResult:
             if hwnd:
                 send_media_command_to_background(hwnd, action_key)
             else:
-                speak(f"Application {app_name} is not running.")
+                print(f"Application {app_name} is not running.")
         else:
             print(f"Could not recognize an application in phrase: {app_part}")
 
@@ -241,5 +258,5 @@ def process_command(command: str) -> CommandResult:
 
     # Fallback
 
-    speak("I did not quite understand. Please repeat.")
+    
     return CommandResult.UNKNOWN

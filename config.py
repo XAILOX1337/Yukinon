@@ -9,15 +9,17 @@ VOCABULARY_LIST = [
     "pause", "play", "resume", "continue",
     "next", "previous", "prev", "back",
     "track", "song", "music",
-    "open", "close", "site", "tab", "new", "reopen", "go", "to",
+    "open", "launch", "run", "close", "site", "tab", "new", "reopen", "go", "to",
     "next tab", "previous tab", "new tab", "close tab", "reopen tab", "switch tab",
     "open site", "close site", "go to",
     "minimize", "maximize", "fullscreen", "full screen", "restore", "show", "desktop", "window", "all",
     "minimize window", "maximize window", "minimize all", "restore all", "show desktop",
     "terminate", "kill", "shut down", "shutdown",
-    "spotify", "chrome", "google", "vs code", "code", "visual studio code",
-    "telegram", "tg", "discord", "notepad", "hap", "firefox", "zen", "browser",
-    "steam", "explorer", "task manager", "obsidian", "youtube"
+    "spotify", "chrome", "google", "vs code", "code", "visual studio code", "visual studio",
+    "telegram", "tg", "discord", "notepad", "hap", "happ", "firefox", "zen", "browser",
+    "steam", "explorer", "file", "file explorer", "task manager", "obsidian", "youtube",
+    "lightroom", "adobe lightroom classic", "exitlag", "exit lag",
+    "intellij", "idea", "intellij idea", "nvidia", "app", "nvidia app"
 ]
 
 APP_ALIASES = {
@@ -32,6 +34,7 @@ APP_ALIASES = {
     "discord": "Discord.exe",
     "notepad": "Notepad.exe",
     "hap": "Happ.exe",
+    "happ": "Happ.exe",
     "firefox": "firefox.exe",
     "browser": "zen.exe",
     "zen": "zen.exe",
