@@ -17,15 +17,16 @@ model = Model(model_path)
 
 VOCABULARY_JSON = json.dumps(VOCABULARY_LIST, ensure_ascii=False)
 command_recognizer = KaldiRecognizer(model, 16000, VOCABULARY_JSON)
-free_recognizer = KaldiRecognizer(model, 16000)
 
+# 100 ms device batches: the recognizer gets fed steadily instead of
+# 500 ms bursts, which shaves the endpoint detection delay
 mic = pyaudio.PyAudio()
 stream = mic.open(
     format=pyaudio.paInt16,
     channels=1,
     rate=16000,
     input=True,
-    frames_per_buffer=8000,
+    frames_per_buffer=1600,
 )
 stream.start_stream()
 
@@ -61,9 +62,9 @@ def _start_idle_timer():
     _idle_timer.start()
 
 
-def ack_command(success: bool = True):
+def ack_command():
     """Reset the idle timer after a successful command execution."""
-    if success and _state == "ACTIVE":
+    if _state == "ACTIVE":
         _start_idle_timer()
 
 
@@ -78,8 +79,10 @@ def _read_until_result(recognizer, state_guard):
              final result).
         None: if state_guard() returned False (state changed during read).
     """
+    # 1600 frames = 100 ms of audio per read: the utterance endpoint reacts
+    # twice as fast as the old 4000-frame (250 ms) chunks
     while state_guard():
-        data = stream.read(4000, exception_on_overflow=False)
+        data = stream.read(1600, exception_on_overflow=False)
 
         if recognizer.AcceptWaveform(data):
             result = json.loads(recognizer.Result())
@@ -165,18 +168,3 @@ def listen():
             continue
 
         return text
-
-
-def listen_free():
-    print("\n[Listening free-form...]")
-    while True:
-        data = stream.read(4000, exception_on_overflow=False)
-
-        if free_recognizer.AcceptWaveform(data):
-            result = json.loads(free_recognizer.Result())
-            text = result.get("text", "")
-
-            if text:
-                print(f"You said: {text}")
-                return text
-            return ""

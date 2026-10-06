@@ -11,7 +11,7 @@ sys.stdout.reconfigure(errors="replace")
 
 def main():
     # Startup greeting
-    # speak("All systems online. Yukinon at your service.")
+    speak("All systems online. Yukinon at your service.")
 
     print("Mai is listening... Say 'exit' or 'stop' to quit.")
 
@@ -23,11 +23,10 @@ def main():
             result = process_command(command)
 
             if result == CommandResult.EXIT:
-                # speak("Shutting down. Goodbye.")
                 break
             elif result == CommandResult.EXECUTED:
                 # Reset idle timer after a successful command
-                ack_command(success=True)
+                ack_command()
             # CommandResult.UNKNOWN — leave timer running
 
 
