@@ -8,6 +8,7 @@ from actions.media_control import (
     prev_track,
     send_media_command_to_background,
 )
+from actions.process_control import terminate_app
 from actions.web_control import (
     close_current_tab,
     close_site,
@@ -41,6 +42,7 @@ class CommandResult(Enum):
 
 OPEN_SITE_MARKERS = ("open site", "go to", "open")
 CLOSE_SITE_MARKERS = ("close site", "close")
+TERMINATE_MARKERS = ("terminate", "kill", "shut down", "close")
 
 
 def _extract_marker_query(command: str, markers):
@@ -115,6 +117,26 @@ def process_command(command: str) -> CommandResult:
     #     else:
     #         speak("No site name received.")
     #     return CommandResult.EXECUTED
+
+    # Process termination block ("close site" belongs to the website block above)
+
+    terminate_query = _extract_marker_query(command, TERMINATE_MARKERS)
+    if terminate_query and not command.startswith("close site"):
+        glued_name = terminate_query.replace(" ", "")
+
+        known_apps = list(APP_ALIASES.keys())
+        matches = difflib.get_close_matches(glued_name, known_apps, n=1, cutoff=0.6)
+
+        if matches:
+            app_name = matches[0]
+            print(f"[Fuzzy match] Heard '{terminate_query}', corrected to '{app_name}'")
+        else:
+            app_name = glued_name
+
+        if not terminate_app(app_name):
+            speak(f"Could not find running application {app_name}.")
+
+        return CommandResult.EXECUTED
 
     # Media command block
 

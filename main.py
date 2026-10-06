@@ -25,5 +25,7 @@ def main():
             # CommandResult.UNKNOWN — leave timer running
 
 
+# TODO: open applications
+
 if __name__ == "__main__":
     main()
