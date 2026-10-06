@@ -12,10 +12,17 @@ from pywinauto import Desktop
 BROWSER_EXE_NAMES = {
     "chrome.exe",
     "firefox.exe",
+    "zen.exe",
     "msedge.exe",
     "brave.exe",
     "opera.exe",
     "vivaldi.exe",
+}
+
+# Gecko-based browsers are closed through the address bar, not tab search
+GECKO_BROWSERS = {
+    "firefox.exe",
+    "zen.exe",
 }
 
 SEARCH_URL = "https://www.google.com/search?q={query}"
@@ -182,7 +189,7 @@ def close_site(query: str):
         return False
 
     print(f"Action: Close site '{query}' in {browser}")
-    if browser == "firefox.exe":
+    if browser in GECKO_BROWSERS:
         _close_through_address_bar(query)
     else:
         _close_through_tab_search(query)
